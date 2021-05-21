@@ -156,10 +156,21 @@ int main ( int argc, char *argv[] )
     }
 #endif
 
-    if ( proxy_task ( &proxy ) < 0 )
+    for ( ;; )
     {
-        S ( printf ( "[socr] exit status: %i\n", errno ) );
-        return 1;
+        if ( proxy_task ( &proxy ) < 0 )
+        {
+            if ( errno == EINTR || errno == ENOTCONN )
+            {
+                S ( printf ( "[socr] retrying in 1 sec...\n" ) );
+                sleep ( 1 );
+
+            } else
+            {
+                S ( printf ( "[socr] exit status: %i\n", errno ) );
+                return 1;
+            }
+        }
     }
 
     sc_free ( &proxy.sc_context );
