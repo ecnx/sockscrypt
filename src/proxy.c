@@ -153,6 +153,7 @@ static void remove_stream ( struct proxy_t *proxy, struct stream_t *stream )
             epoll_ctl ( proxy->epoll_fd, EPOLL_CTL_DEL, stream->fd, NULL );
         }
 
+        sc_free_stream ( &stream->sc );
         shutdown_then_close ( stream->fd );
         stream->fd = -1;
     }
