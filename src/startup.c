@@ -9,7 +9,7 @@
  */
 static void show_usage ( void )
 {
-    S ( printf
+    V ( printf
         ( "[socr] usage: sockscrypt [-cs] aeskey-file listen-addr:listen-port endp-addr:endp-port\n\n"
             "options:\n" "       -c                Client-side mode\n"
             "       -b                Bridge-side mode\n"
@@ -75,7 +75,7 @@ int main ( int argc, char *argv[] )
     uint8_t key[AES256_KEYLEN];
 
     /* Show program version */
-    S ( printf ( "[socr] SocksCrypt - ver. " SOCKSCRYPT_VERSION "\n" ) );
+    V ( printf ( "[socr] SocksCrypt - ver. " SOCKSCRYPT_VERSION "\n" ) );
 
     /* Validate arguments count */
     if ( argc != 5 )
@@ -118,13 +118,13 @@ int main ( int argc, char *argv[] )
 
     if ( ( fd = open ( argv[2], O_RDONLY ) ) < 0 )
     {
-        S ( fprintf ( stderr, "[socr] unable to open aes key file: %i\n", errno ) );
+        V ( fprintf ( stderr, "[socr] unable to open aes key file: %i\n", errno ) );
         return 1;
     }
 
     if ( ( ssize_t ) ( len = read ( fd, key, sizeof ( key ) ) ) < 0 )
     {
-        S ( fprintf ( stderr, "[socr] unable to read aes key file: %i\n", errno ) );
+        V ( fprintf ( stderr, "[socr] unable to read aes key file: %i\n", errno ) );
         memset ( key, '\0', sizeof ( key ) );
         close ( fd );
         return 1;
@@ -134,22 +134,25 @@ int main ( int argc, char *argv[] )
 
     if ( len < sizeof ( key ) )
     {
-        S ( fprintf ( stderr, "[socr] aes key must be 32 bytes long.\n" ) );
+        V ( fprintf ( stderr, "[socr] aes key must be 32 bytes long.\n" ) );
         memset ( key, '\0', sizeof ( key ) );
         return 1;
     }
 
     if ( sc_init ( &proxy.sc_context, key, sizeof ( key ) ) < 0 )
     {
-        S ( printf ( "[socr] crypto setup failed.\n" ) );
+        V ( printf ( "[socr] crypto setup failed.\n" ) );
         return -1;
     }
 
     memset ( key, '\0', sizeof ( key ) );
 
-    S ( printf ( "[socr] loaded password from stdin.\n" ) );
+    V ( printf ( "[socr] loaded password from file.\n" ) );
 
 #if !defined(VERBOSE_MODE) && !defined(NO_DAEMON)
+
+    V ( printf ( "[socr] switching to background mode...\n" ) );
+
     if ( daemon ( 0, 0 ) < 0 )
     {
         return -1;
@@ -162,12 +165,12 @@ int main ( int argc, char *argv[] )
         {
             if ( errno == EINTR || errno == ENOTCONN )
             {
-                S ( printf ( "[socr] retrying in 1 sec...\n" ) );
+                V ( printf ( "[socr] retrying in 1 sec...\n" ) );
                 sleep ( 1 );
 
             } else
             {
-                S ( printf ( "[socr] exit status: %i\n", errno ) );
+                V ( printf ( "[socr] exit status: %i\n", errno ) );
                 return 1;
             }
         }
@@ -175,6 +178,6 @@ int main ( int argc, char *argv[] )
 
     sc_free ( &proxy.sc_context );
 
-    S ( printf ( "[socr] exit status: success\n" ) );
+    V ( printf ( "[socr] exit status: success\n" ) );
     return 0;
 }
