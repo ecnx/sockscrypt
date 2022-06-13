@@ -7,6 +7,11 @@ OBJS = \
 	bin/proxy.o \
 	bin/crypto.o \
 
+OBJS6 = \
+	bin/startup6.o \
+	bin/proxy6.o \
+	bin/crypto.o \
+
 all: host
 
 internal: prepare
@@ -14,10 +19,16 @@ internal: prepare
 	@$(CC) $(CFLAGS) $(INCLUDES) src/startup.c -o bin/startup.o
 	@echo "  CC    src/proxy.c"
 	@$(CC) $(CFLAGS) $(INCLUDES) src/proxy.c -o bin/proxy.o
+	@echo "  CC    src/startup6.c"
+	@$(CC) $(CFLAGS) $(INCLUDES) src/startup6.c -o bin/startup6.o
+	@echo "  CC    src/proxy6.c"
+	@$(CC) $(CFLAGS) $(INCLUDES) src/proxy6.c -o bin/proxy6.o
 	@echo "  CC    src/crypto.c"
 	@$(CC) $(CFLAGS) $(INCLUDES) src/crypto.c -o bin/crypto.o
 	@echo "  LD    bin/sockscrypt"
 	@$(LD) -o bin/sockscrypt $(OBJS) $(LDFLAGS) -lmbedcrypto
+	@echo "  LD    bin/sockscrypt6"
+	@$(LD) -o bin/sockscrypt6 $(OBJS6) $(LDFLAGS) -lmbedcrypto
 
 prepare:
 	@mkdir -p bin
@@ -27,6 +38,20 @@ host:
 		CC=gcc \
 		LD=gcc \
 		CFLAGS='-c -Wall -Wextra -O3 -ffunction-sections -fdata-sections -Wstrict-prototypes -DVERBOSE_MODE' \
+		LDFLAGS='-Wl,--gc-sections -Wl,--relax'
+
+debug:
+	@make internal \
+		CC=gcc \
+		LD=gcc \
+		CFLAGS='-c -Wall -Wextra -O3 -ffunction-sections -fdata-sections -Wstrict-prototypes -DVERBOSE_MODE -g' \
+		LDFLAGS='-Wl,--gc-sections -Wl,--relax -g'
+
+openwrt:
+	@make internal \
+		CC=aarch64-openwrt-linux-musl-gcc \
+		LD=aarch64-openwrt-linux-musl-gcc \
+		CFLAGS='-c -Wall -Wextra -O3 -ffunction-sections -fdata-sections -Wstrict-prototypes' \
 		LDFLAGS='-Wl,--gc-sections -Wl,--relax'
 
 nodaemon:
