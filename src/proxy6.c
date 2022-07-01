@@ -2,7 +2,7 @@
  * SocksCrypt - Proxy Task Source Code
  * ------------------------------------------------------------------ */
 
-#include "proxy.h"
+#include "proxy6.h"
 
 /**
  * Check socket error
@@ -56,20 +56,20 @@ static void shutdown_then_close ( int sock )
 /**
  * Bind address to listen socket
  */
-static int listen_socket ( unsigned int addr, unsigned short port )
+static int listen_socket ( struct in6_addr addr, unsigned short port )
 {
     int sock;
     int yes = 1;
-    struct sockaddr_in saddr;
+    struct sockaddr_in6 saddr;
 
     /* Prepare socket address */
     memset ( &saddr, '\0', sizeof ( saddr ) );
-    saddr.sin_family = AF_INET;
-    saddr.sin_addr.s_addr = addr;
-    saddr.sin_port = htons ( port );
+    saddr.sin6_family = AF_INET6;
+    saddr.sin6_addr = addr;
+    saddr.sin6_port = htons ( port );
 
     /* Allocate socket */
-    if ( ( sock = socket ( AF_INET, SOCK_STREAM, 0 ) ) < 0 )
+    if ( ( sock = socket ( AF_INET6, SOCK_STREAM, 0 ) ) < 0 )
     {
         return -1;
     }
@@ -571,20 +571,20 @@ static int watch_streams ( struct proxy_t *proxy )
  * Estabilish connection with endpoint
  */
 static int setup_endpoint_stream ( struct proxy_t *proxy, struct stream_t *stream,
-    unsigned int addr, unsigned short port )
+    struct in6_addr addr, unsigned short port )
 {
     int sock;
-    struct sockaddr_in saddr;
+    struct sockaddr_in6 saddr;
     struct stream_t *neighbour;
 
     /* Prepare socket address */
     memset ( &saddr, '\0', sizeof ( saddr ) );
-    saddr.sin_family = AF_INET;
-    saddr.sin_addr.s_addr = addr;
-    saddr.sin_port = htons ( port );
+    saddr.sin6_family = AF_INET6;
+    saddr.sin6_addr = addr;
+    saddr.sin6_port = htons ( port );
 
     /* Create new socket */
-    if ( ( sock = socket ( AF_INET, SOCK_STREAM, 0 ) ) < 0 )
+    if ( ( sock = socket ( AF_INET6, SOCK_STREAM, 0 ) ) < 0 )
     {
         return -2;
     }
@@ -696,7 +696,6 @@ static struct stream_t *accept_new_stream ( struct proxy_t *proxy, int lfd )
 static int handle_new_stream ( struct proxy_t *proxy, struct stream_t *stream )
 {
     int status;
-    unsigned int addr;
     unsigned short port;
     struct stream_t *util;
 
@@ -724,11 +723,10 @@ static int handle_new_stream ( struct proxy_t *proxy, struct stream_t *stream )
     util->events = 0;
 
     /* Set endpoint address */
-    addr = proxy->endpoint_addr;
     port = proxy->endpoint_port;
 
     /* Setup endpoint stream */
-    if ( ( status = setup_endpoint_stream ( proxy, util, addr, port ) ) < 0 )
+    if ( ( status = setup_endpoint_stream ( proxy, util, proxy->endpoint_addr, port ) ) < 0 )
     {
         remove_stream ( proxy, util );
         return status;
