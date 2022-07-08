@@ -46,7 +46,6 @@ struct sc_context_t
 #define SC_STREAM_ENCRYPT_MODE     4
 #define SC_STREAM_SENT_TXNONCE     8
 #define SC_STREAM_RECV_RXNONCE     16
-#define SC_STREAM_BRIDGE_MODE      32
 
 /**
  * SC stream context
