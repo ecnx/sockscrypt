@@ -1,6 +1,6 @@
 About
 -----
-This program tunnels Socks-5 traffic using AES-encryption between two devices.
+Tunnel AES-encrypted Socks-5 traffic with IPv6 supported
 
 Example usage:
 --------------
@@ -11,28 +11,28 @@ dd if=/dev/random bs=32 count=1 of=aeskey
 Launch plain Socks-5 proxy on VPS,
 for example with axproxy, another project here:
 ```
-axproxy 127.0.0.1:8080
+axproxy -v [::1]:8080
 ```
-Then launch SocksCrypt on VPS (server-side):
+Start SocksCrypt on VPS, server-side:
 ```
-./bin/sockscrypt -s aeskey 0.0.0.0:12345 127.0.0.1:8080
+./bin/sockscrypt -vs aeskey 0.0.0.0:8081 [::1]:8080
 ```
-Finally launch SocksCrypt on Desktop (client-side):
+Then launch SocksCrypt on Desktop, client-side:
 ```
-./bin/sockscrypt -c aeskey 0.0.0.0:8082 <vps-ipv4>:8080
+./bin/sockscrypt -vc aeskey [::1]:8082 <vps-ipv4>:8080
 ```
-Test connection with curl on Desktop:
+Finally check the connection with curl, client-side:
 ```
-curl -x socks5h://localhost:8082 https://ipinfo.io/json -o -
+curl -x socks5h://[::1]:8082 https://ipinfo.io/json -o -
 ```
-Ports summary:
-* 8080 - Plain Socks-5 server port on VPS
-* 12345 - Encrypted Socks-5 traffic between devices
+Purpose of ports used in example:
+* 8080 - Incoming plaintext Socks-5 data on VPS
+* 8081 - Incoming ciphertext Socks-5 data on VPS
 * 8082 - Gateway on Desktop for connections to be tunneled
 
 How to build
 ------------
-install dependency: mbedtls, then run:
+Install mbedtls, then
 ```
 make
 ```
@@ -40,20 +40,19 @@ make
 Usage message:
 --------------
 ```
-[socr] SocksCrypt - ver. 1.04.2a
-[socr] usage: sockscrypt [-cs] aeskey-file listen-addr:listen-port endp-addr:endp-port
+[skcr] SocksCrypt - ver. 1.05.1a
+[skcr] usage: sockscrypt [-vdcs] aeskey-file listen-addr:listen-port endp-addr:endp-port
 
-options:
-       -c                Client-side mode
-       -b                Bridge-side mode
-       -s                Server-side mode
-
-values:
+       option -v         Enable verbose logging
+       option -d         Run in background
+       option -c         Client-side mode
+       option -s         Server-side mode
        aeskey-file       Plain AES-256 key file
        listen-addr       Gateway address
        listen-port       Gateway port
        endp-addr         Endpoint address
        endp-port         Endpoint port
 
-```
+Note: Both IPv4 and IPv6 can be used
 
+```
