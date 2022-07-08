@@ -2,66 +2,22 @@
  * SocksCrypt - Main Program File
  * ------------------------------------------------------------------ */
 
-#include "proxy.h"
+#include "sockscrypt.h"
 
 /**
  * Show program usage message
  */
 static void show_usage ( void )
 {
-    V ( printf
-        ( "[socr] usage: sockscrypt [-cs] aeskey-file listen-addr:listen-port endp-addr:endp-port\n\n"
-            "options:\n" "       -c                Client-side mode\n"
-            "       -b                Bridge-side mode\n"
-            "       -s                Server-side mode\n\n" "values:\n"
-            "       aeskey-file       Plain AES-256 key file\n"
-            "       listen-addr       Gateway address\n" "       listen-port       Gateway port\n"
-            "       endp-addr         Endpoint address\n"
-            "       endp-port         Endpoint port\n\n" ) );
-}
-
-/**
- * Decode ip address and port number
- */
-static int ip_port_decode ( const char *input, unsigned int *addr, unsigned short *port )
-{
-    unsigned int lport;
-    size_t len;
-    const char *ptr;
-    char buffer[32];
-
-    /* Find port number separator */
-    if ( !( ptr = strchr ( input, ':' ) ) )
-    {
-        return -1;
-    }
-
-    /* Validate destination buffer size */
-    if ( ( len = ptr - input ) >= sizeof ( buffer ) )
-    {
-        return -1;
-    }
-
-    /* Save address string */
-    memcpy ( buffer, input, len );
-    buffer[len] = '\0';
-
-    /* Parse IP address */
-    if ( inet_pton ( AF_INET, buffer, addr ) <= 0 )
-    {
-        return -1;
-    }
-
-    ptr++;
-
-    /* Parse port b number */
-    if ( sscanf ( ptr, "%u", &lport ) <= 0 || lport > 65535 )
-    {
-        return -1;
-    }
-
-    *port = lport;
-    return 0;
+    failure
+        ( "usage: sockscrypt [-vdcs] aeskey-file listen-addr:listen-port endp-addr:endp-port\n\n"
+        "       option -v         Enable verbose logging\n"
+        "       option -d         Run in background\n" "       option -c         Client-side mode\n"
+        "       option -s         Server-side mode\n"
+        "       aeskey-file       Plain AES-256 key file\n"
+        "       listen-addr       Gateway address\n" "       listen-port       Gateway port\n"
+        "       endp-addr         Endpoint address\n"
+        "       endp-port         Endpoint port\n\n" "Note: Both IPv4 and IPv6 can be used\n\n" );
 }
 
 /**
@@ -70,12 +26,15 @@ static int ip_port_decode ( const char *input, unsigned int *addr, unsigned shor
 int main ( int argc, char *argv[] )
 {
     int fd;
+    int daemon_flag = 0;
     size_t len;
-    struct proxy_t proxy;
+    struct proxy_t proxy = { 0 };
     uint8_t key[AES256_KEYLEN];
 
+    setbuf ( stdout, NULL );
+
     /* Show program version */
-    V ( printf ( "[socr] SocksCrypt - ver. " SOCKSCRYPT_VERSION "\n" ) );
+    info ( "SocksCrypt - ver. " SOCKSCRYPT_VERSION "\n" );
 
     /* Validate arguments count */
     if ( argc != 5 )
@@ -84,17 +43,18 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
-    memset ( &proxy, '\0', sizeof ( proxy ) );
+    /* Work modes are all exclusice */
+    if ( !!strchr ( argv[1], 'c' ) + !!strchr ( argv[1], 's' ) != 1 )
+    {
+        show_usage (  );
+        return 1;
+    }
 
-    if ( !strcmp ( argv[1], "-c" ) )
+    if ( strchr ( argv[1], 'c' ) )
     {
         proxy.client_side_mode = 1;
 
-    } else if ( !strcmp ( argv[1], "-b" ) )
-    {
-        proxy.client_side_mode = -1;
-
-    } else if ( !strcmp ( argv[1], "-s" ) )
+    } else if ( strchr ( argv[1], 's' ) )
     {
         proxy.client_side_mode = 0;
 
@@ -104,13 +64,16 @@ int main ( int argc, char *argv[] )
         return 1;
     }
 
-    if ( ip_port_decode ( argv[3], &proxy.listen_addr, &proxy.listen_port ) < 0 )
+    proxy.verbose = !!strchr ( argv[1], 'v' );
+    daemon_flag = !!strchr ( argv[1], 'd' );
+
+    if ( ip_port_decode ( argv[3], &proxy.entrance ) < 0 )
     {
         show_usage (  );
         return 1;
     }
 
-    if ( ip_port_decode ( argv[4], &proxy.endpoint_addr, &proxy.endpoint_port ) < 0 )
+    if ( ip_port_decode ( argv[4], &proxy.endpoint ) < 0 )
     {
         show_usage (  );
         return 1;
@@ -118,13 +81,13 @@ int main ( int argc, char *argv[] )
 
     if ( ( fd = open ( argv[2], O_RDONLY ) ) < 0 )
     {
-        V ( fprintf ( stderr, "[socr] unable to open aes key file: %i\n", errno ) );
+        failure ( "unable to open aes key file: %i\n", errno );
         return 1;
     }
 
     if ( ( ssize_t ) ( len = read ( fd, key, sizeof ( key ) ) ) < 0 )
     {
-        V ( fprintf ( stderr, "[socr] unable to read aes key file: %i\n", errno ) );
+        failure ( "unable to read aes key file: %i\n", errno );
         memset ( key, '\0', sizeof ( key ) );
         close ( fd );
         return 1;
@@ -134,50 +97,38 @@ int main ( int argc, char *argv[] )
 
     if ( len < sizeof ( key ) )
     {
-        V ( fprintf ( stderr, "[socr] aes key must be 32 bytes long.\n" ) );
+        failure ( "aes key must be 32 bytes long\n" );
         memset ( key, '\0', sizeof ( key ) );
         return 1;
     }
 
     if ( sc_init ( &proxy.sc_context, key, sizeof ( key ) ) < 0 )
     {
-        V ( printf ( "[socr] crypto setup failed.\n" ) );
+        failure ( "crypto setup failed\n" );
         return -1;
     }
 
     memset ( key, '\0', sizeof ( key ) );
 
-    V ( printf ( "[socr] loaded password from file.\n" ) );
+    info ( "loaded password from file\n" );
 
-#if !defined(VERBOSE_MODE) && !defined(NO_DAEMON)
-
-    V ( printf ( "[socr] switching to background mode...\n" ) );
-
-    if ( daemon ( 0, 0 ) < 0 )
+    /* Run in background if needed */
+    if ( daemon_flag )
     {
-        return -1;
-    }
-#endif
-
-    for ( ;; )
-    {
-        if ( proxy_task ( &proxy ) < 0 )
+        if ( daemon ( 0, 0 ) < 0 )
         {
-            if ( errno == EINTR || errno == ENOTCONN )
-            {
-                V ( printf ( "[socr] retrying in 1 sec...\n" ) );
-                sleep ( 1 );
-
-            } else
-            {
-                V ( printf ( "[socr] exit status: %i\n", errno ) );
-                return 1;
-            }
+            failure ( "cannot run in background: %i\n", errno );
+            return 1;
         }
     }
 
-    sc_free ( &proxy.sc_context );
+    /* Launch the proxy task */
+    if ( proxy_task ( &proxy ) < 0 )
+    {
+        failure ( "exit status: %i\n", errno );
+        return 1;
+    }
 
-    V ( printf ( "[socr] exit status: success\n" ) );
+    info ( "exit status: success\n" );
     return 0;
 }

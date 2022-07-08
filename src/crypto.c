@@ -2,7 +2,7 @@
  * SC Crypto - Library Source
  * ------------------------------------------------------------------ */
 
-#include "proxy.h"
+#include "sockscrypt.h"
 
 /**
  * Initialize random generator wrapper
@@ -112,12 +112,6 @@ void sc_free ( struct sc_context_t *context )
 int sc_new_stream ( struct sc_stream_t *stream, struct sc_context_t *context, int encrypt )
 {
     uint8_t rawkey[AES256_KEYLEN];
-
-    if ( encrypt < 0 )
-    {
-        stream->flags = SC_STREAM_INITIALIZED | SC_STREAM_BRIDGE_MODE;
-        return 0;
-    }
 
     memset ( stream, '\0', sizeof ( struct sc_stream_t ) );
 
@@ -248,8 +242,6 @@ static int sc_decrypt_data ( struct sc_stream_t *stream, const uint8_t * src, in
 
     if ( len >= stream->processed_size || stream->processed_len )
     {
-        puts ( "ERRRR--2" );
-        exit ( 2 );
         return -1;
     }
 
@@ -345,13 +337,6 @@ int sc_process_data ( struct sc_stream_t *stream, const uint8_t * src, int len )
     if ( ~stream->flags & SC_STREAM_INITIALIZED || stream->flags & SC_STREAM_ERROR_STATE )
     {
         return -1;
-    }
-
-    if ( stream->flags & SC_STREAM_BRIDGE_MODE )
-    {
-        memcpy ( stream->processed, src, len );
-        stream->processed_len = len;
-        return 0;
     }
 
     if ( stream->flags & SC_STREAM_ENCRYPT_MODE )
