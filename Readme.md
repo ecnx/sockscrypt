@@ -2,8 +2,8 @@ About
 -----
 Tunnel AES-encrypted Socks-5 traffic with IPv6 supported
 
-Example usage:
---------------
+Example usage
+-------------
 Generate AES-256 key for both Desktop and VPS:
 ```
 dd if=/dev/random bs=32 count=1 of=aeskey
@@ -37,8 +37,8 @@ Install mbedtls, then
 make
 ```
 
-Usage message:
---------------
+Help message
+------------
 ```
 [skcr] SocksCrypt - ver. 1.05.1a
 [skcr] usage: sockscrypt [-vdcs] aeskey-file listen-addr:listen-port endp-addr:endp-port
