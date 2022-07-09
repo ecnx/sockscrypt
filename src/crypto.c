@@ -10,32 +10,18 @@
 static int sc_random_init ( struct sc_random_t *random )
 {
     random->initialized = FALSE;
+    mbedtls_entropy_init ( &random->entropy );
+    mbedtls_ctr_drbg_init ( &random->ctr_drbg );
 
-    if ( ( random->fd = open ( "/dev/urandom", O_RDONLY ) ) < 0 )
+    if ( mbedtls_ctr_drbg_seed ( &random->ctr_drbg, mbedtls_entropy_func, &random->entropy,
+            ( unsigned char * ) PERS_STRING, strlen ( PERS_STRING ) ) != 0 )
     {
+        mbedtls_ctr_drbg_free ( &random->ctr_drbg );
+        mbedtls_entropy_free ( &random->entropy );
         return -1;
     }
 
     random->initialized = TRUE;
-    return 0;
-}
-
-/**
- * Read complete block of data from file
- */
-static int read_complete ( int fd, uint8_t * arr, size_t len )
-{
-    size_t ret;
-    size_t sum;
-
-    for ( sum = 0; sum < len; sum += ret )
-    {
-        if ( ( ssize_t ) ( ret = read ( fd, arr + sum, len - sum ) ) <= 0 )
-        {
-            return -1;
-        }
-    }
-
     return 0;
 }
 
@@ -49,7 +35,7 @@ static int sc_random_bytes ( struct sc_random_t *random, uint8_t * buf, size_t l
         return -1;
     }
 
-    if ( read_complete ( random->fd, buf, len ) < 0 )
+    if ( mbedtls_ctr_drbg_random ( &random->ctr_drbg, buf, len ) != 0 )
     {
         return -1;
     }
@@ -64,7 +50,8 @@ static void sc_random_free ( struct sc_random_t *random )
 {
     if ( random->initialized )
     {
-        close ( random->fd );
+        mbedtls_ctr_drbg_free ( &random->ctr_drbg );
+        mbedtls_entropy_free ( &random->entropy );
         random->initialized = FALSE;
     }
 }
