@@ -1,14 +1,21 @@
-About
------
-Tunnel AES-encrypted Socks-5 traffic with IPv6 supported
+Purpose
+-------
+Tunnel AES-encrypted SOCKS-5 networking with IPv6 supported
 
-Example usage
--------------
+Building
+--------
+install mbedtls, then run
+```
+make
+```
+
+Example
+-------
 Generate AES-256 key for both Desktop and VPS:
 ```
 dd if=/dev/random bs=32 count=1 of=aeskey
 ```
-Launch plain Socks-5 proxy on VPS,
+Launch plain SOCKS-5 proxy on VPS,
 for example with axproxy, another project here:
 ```
 axproxy -v [::1]:8080
@@ -25,17 +32,10 @@ Finally check the connection with curl, client-side:
 ```
 curl -x socks5h://[::1]:8082 https://ipinfo.io/json -o -
 ```
-Purpose of ports used in example:
+Ports used in the example:
 * 8080 - Incoming plaintext Socks-5 data on VPS
 * 8081 - Incoming ciphertext Socks-5 data on VPS
 * 8082 - Gateway on Desktop for connections to be tunneled
-
-How to build
-------------
-Install mbedtls, then
-```
-make
-```
 
 Help message
 ------------
