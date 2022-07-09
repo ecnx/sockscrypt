@@ -5,6 +5,8 @@
 #ifndef SC_CRYPTO_LIB_H
 #define SC_CRYPTO_LIB_H
 
+#include <mbedtls/entropy.h>
+#include <mbedtls/ctr_drbg.h>
 #include <mbedtls/aes.h>
 
 #ifndef FALSE
@@ -27,7 +29,8 @@
 struct sc_random_t
 {
     int initialized;
-    int fd;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_entropy_context entropy;
 };
 
 /**
