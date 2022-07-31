@@ -40,9 +40,9 @@
  * Message Logging
  */
 #ifdef STRIP_STRINGS
-#define info(X)
-#define failure(X)
-#define verbose(X)
+#define info(...)
+#define failure(...)
+#define verbose(...)
 #else
 #define info(...)  \
     printf("[" PROGRAM_SHORTCUT "] " __VA_ARGS__);
@@ -293,12 +293,10 @@ extern void remove_all_streams ( struct proxy_t *proxy );
 /**
  * Remove pending streams
  */
-extern void remove_pending_streams ( struct proxy_t *proxy );
 
 /**
  * Remove abandoned streams
  */
-extern void cleanup_streams ( struct proxy_t *proxy );
 
 /**
  * Remove oldest forwarding relation
