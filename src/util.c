@@ -143,26 +143,35 @@ int ip_port_decode ( const char *input, struct sockaddr_storage *saddr )
  */
 void format_ip_port ( const struct sockaddr_storage *saddr, char *buffer, size_t size )
 {
+#ifndef STRIP_STRINGS
     int port;
     struct sockaddr_in *saddr_in;
     struct sockaddr_in6 *saddr_in6;
     char straddr[STRADDR_SIZE];
-
-    inet_ntop ( saddr->ss_family, ( const struct sockaddr * ) saddr, straddr,
-        sizeof ( struct sockaddr_storage ) );
+#endif
 
     switch ( saddr->ss_family )
     {
+#ifndef STRIP_STRINGS
     case AF_INET:
         saddr_in = ( struct sockaddr_in * ) saddr;
+        if (!inet_ntop ( saddr->ss_family,& saddr_in->sin_addr, straddr,
+            sizeof ( straddr ) )) {
+            snprintf(straddr, sizeof(straddr), "invalid-ipv4");
+        }
         port = ntohs ( saddr_in->sin_port );
         snprintf ( buffer, size, "%s:%i", straddr, port );
         break;
     case AF_INET6:
         saddr_in6 = ( struct sockaddr_in6 * ) saddr;
+        if (!inet_ntop ( saddr->ss_family,& saddr_in6->sin6_addr, straddr,
+            sizeof (  straddr ) )) {
+            snprintf(straddr, sizeof(straddr), "invalid-ipv6");
+        }
         port = ntohs ( saddr_in6->sin6_port );
         snprintf ( buffer, size, "[%s]:%i", straddr, port );
         break;
+#endif
     default:
         if ( size )
         {
@@ -301,6 +310,8 @@ int socket_set_nonblocking ( struct proxy_t *proxy, int sock )
 {
     long mode = 0;
 
+    UNUSED(proxy);
+
     /* Get current socket mode */
     if ( ( mode = fcntl ( sock, F_GETFL, 0 ) ) < 0 )
     {
@@ -432,6 +443,8 @@ int socket_forward_data ( struct proxy_t *proxy, int srcfd, int dstfd )
  */
 void shutdown_then_close ( struct proxy_t *proxy, int sock )
 {
+    UNUSED(proxy);
+
     shutdown ( sock, SHUT_RDWR );
     verbose ( "socket:%i has been shutdown\n", sock );
     close ( sock );
@@ -500,6 +513,8 @@ int queue_shift ( struct queue_t *queue, int fd )
  */
 int check_enough_data ( struct proxy_t *proxy, struct stream_t *stream, size_t value )
 {
+    UNUSED(proxy);
+
     if ( stream->queue.len < value )
     {
         verbose ( "awaiting more bytes (%lu/%lu) from socket:%i...\n",
@@ -624,13 +639,17 @@ int watch_streams_poll ( struct proxy_t *proxy )
         return -1;
     }
 
-    verbose ( "waiting for events with poll...\n" );
-
     /* Poll events */
     if ( ( nfds = poll ( poll_list, poll_len, POLL_TIMEOUT_MSEC ) ) < 0 )
     {
         failure ( "poll events failed (%i)\n", errno );
         return -1;
+    }
+
+    /* Print stats */
+    if (nfds > 0)
+    {
+        verbose ( "found %i event%s with poll\n" , nfds, nfds == 1 ? "" : "s");
     }
 
     /* Update stream poll revents */
@@ -795,13 +814,17 @@ int watch_streams_epoll ( struct proxy_t *proxy )
         return -1;
     }
 
-    verbose ( "waiting for events with epoll...\n" );
-
     /* E-Poll events */
     if ( ( nfds = epoll_wait ( proxy->epoll_fd, events, POOL_SIZE, POLL_TIMEOUT_MSEC ) ) < 0 )
     {
         failure ( "epoll wait failed (%i)\n", errno );
         return -1;
+    }
+
+    /* Print stats */
+    if (nfds > 0)
+    {
+        verbose ( "found %i event%s with epoll\n" , nfds, nfds == 1 ? "" : "s");
     }
 
     /* Update stream epoll revents */
@@ -959,30 +982,33 @@ void show_stats ( struct proxy_t *proxy )
     int total = 0;
     struct stream_t *iter;
 
-    for ( iter = proxy->stream_head; iter; iter = iter->next )
+    if (proxy->verbose)
     {
-        if ( iter->role == S_PORT_A )
+        for ( iter = proxy->stream_head; iter; iter = iter->next )
         {
-            if ( iter->level == LEVEL_FORWARDING )
+            if ( iter->role == S_PORT_A )
             {
-                a_forwarding++;
-            }
-            a_total++;
+                if ( iter->level == LEVEL_FORWARDING )
+                {
+                    a_forwarding++;
+                }
+                a_total++;
 
-        } else if ( iter->role == S_PORT_B )
-        {
-            if ( iter->level == LEVEL_FORWARDING )
+            } else if ( iter->role == S_PORT_B )
             {
-                b_forwarding++;
+                if ( iter->level == LEVEL_FORWARDING )
+                {
+                    b_forwarding++;
+                }
+                b_total++;
             }
-            b_total++;
+
+            total++;
         }
 
-        total++;
+        verbose ( "load: A:%i/%i B:%i/%i *:%i/%i\n", a_forwarding, a_total, b_forwarding,
+            b_total, total, POOL_SIZE );
     }
-
-    info ( "load: A:%i/%i B:%i/%i *:%i/%i\n", a_forwarding, a_total, b_forwarding,
-        b_total, total, POOL_SIZE );
 }
 
 /**
@@ -1022,6 +1048,8 @@ void remove_stream ( struct proxy_t *proxy, struct stream_t *stream )
     }
 
     stream->allocated = 0;
+
+    show_stats ( proxy );
 }
 
 /*
@@ -1057,7 +1085,7 @@ void remove_all_streams ( struct proxy_t *proxy )
 /**
  * Remove pending streams
  */
-void remove_pending_streams ( struct proxy_t *proxy )
+static void remove_pending_streams ( struct proxy_t *proxy )
 {
     struct stream_t *iter;
 
@@ -1075,7 +1103,7 @@ void remove_pending_streams ( struct proxy_t *proxy )
 /**
  * Remove abandoned streams
  */
-void cleanup_streams ( struct proxy_t *proxy )
+static void cleanup_streams ( struct proxy_t *proxy )
 {
     struct stream_t *iter;
     struct stream_t *next;
@@ -1145,7 +1173,6 @@ int handle_streams_cycle ( struct proxy_t *proxy )
     {
         remove_pending_streams ( proxy );
         cleanup_streams ( proxy );
-        show_stats ( proxy );
         return 0;
     }
 
